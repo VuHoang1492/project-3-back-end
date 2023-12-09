@@ -1,26 +1,20 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserModule } from './user/user.module';
-import { UserEntity } from './user/user.entity';
+import { UserModule } from './modules/user/user.module';
+
+import { MailModule } from './modules/mail/mail.module';
+import { ConfigModule } from '@nestjs/config';
+import { AppJwtModule } from './modules/app.jwt/app.jwt.module';
+import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: 'localhost',
-      port: 3306,
-      username: 'root',
-      password: '',
-      database: 'foodmap',
-      entities: [UserEntity],
-      synchronize: true,
-    }),
-    ConfigModule.forRoot({
-      isGlobal: true, // no need to import into other modules
-    }),
-    UserModule
+    MongooseModule.forRoot('mongodb://127.0.0.1:27017/foodmap'),
+    ConfigModule.forRoot(),
+    UserModule,
+    MailModule,
+    AppJwtModule
   ],
   controllers: [AppController],
   providers: [AppService],
