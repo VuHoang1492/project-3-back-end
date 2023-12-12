@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { RegisterDTO } from './dto/register.dto';
 import { InjectModel } from '@nestjs/mongoose'
 import * as bcrypt from 'bcrypt'
+import mongoose from 'mongoose';
+import { ObjectId } from 'mongoose';
 
 import { User } from './user.schema';
-import mongoose from 'mongoose';
 import { MailService } from 'src/modules/mail/mail.service';
 import { AppJwtService } from 'src/modules/app.jwt/app.jwt.service';
 import { ResponseData, UserData } from 'src/global/global';
-import { HttpCode, HttpMessage } from 'src/global/enum';
+import { HttpCode, HttpMessage, Role } from 'src/global/enum';
 import { LogInDTO } from './dto/login.dto';
-
+import { RegisterDTO } from './dto/register.dto';
 
 @Injectable()
 export class UserService {
@@ -22,8 +22,14 @@ export class UserService {
         private readonly jwtService: AppJwtService
     ) { }
 
+
+    //TODO: register
     async sendVerifyMail(userDTO: RegisterDTO): Promise<ResponseData<string>> {
         try {
+            if (userDTO.email == 'adminfoodmap@admin.com')
+                return new ResponseData<string>(null, HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+
+
             const user = await this.userModel.findOne({ email: userDTO.email })
             if (user) {
                 return new ResponseData<string>(null, HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
@@ -64,21 +70,66 @@ export class UserService {
         }
     }
 
-    async login(userDTO: LogInDTO): Promise<ResponseData<UserData>> {
+
+    //TODO: login service
+    async login(userDTO: LogInDTO): Promise<ResponseData<{ accessToken: string }>> {
         try {
-            console.log(1234);
+            if (userDTO.email == process.env.ADMIN_EMAIL) {
+                if (userDTO.password == process.env.ADMIN_PASSWORD) {
+                    const accessToken = await this.jwtService.generateAccessToken(process.env.ADMIN_ID)
+                    return new ResponseData<{ accessToken: string }>({ accessToken: accessToken }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+                }
+            }
+
 
             const userCheck = await this.userModel.findOne({ email: userDTO.email })
+
             if (userCheck) {
-                console.log('data ', userCheck);
-            } else { return new ResponseData<UserData>(null, HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED) }
+                const res = await bcrypt.compareSync(userDTO.password, userCheck.password)
+                if (res) {
+                    const accessToken = await this.jwtService.generateAccessToken(userCheck._id.toString())
+                    return new ResponseData<{ accessToken: string }>({ accessToken: accessToken }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+                } else {
+                    return new ResponseData<{ accessToken: string }>(null, HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+                }
+
+            } else {
+                return new ResponseData<{ accessToken: string }>(null, HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+            }
         } catch (error) {
             console.log(error);
-            return new ResponseData<UserData>(null, HttpMessage.ERROR, HttpCode.ERROR)
-
+            return new ResponseData<{ accessToken: string }>(null, HttpMessage.ERROR, HttpCode.ERROR)
         }
     }
 
+    //TODO: get user profile
+    async getUser(token: string): Promise<ResponseData<UserData | { role: string }>> {
+        try {
+            const payload = await this.jwtService.verifyToken(token)
+
+            if (payload.userId == process.env.ADMIN_ID) {
+                return new ResponseData<{ role: string }>({ role: 'admin' }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            }
+
+            const user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(payload.userId) })
+            if (user) {
+                const data: UserData = {
+                    id: user._id.toString(),
+                    email: user.email,
+                    userName: user.userName,
+                    role: user.role as Role
+                }
+
+                return new ResponseData<UserData>(data, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            } else {
+                return new ResponseData<UserData>(null, HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+            }
+
+
+        } catch (error) {
+            return new ResponseData<UserData>(null, HttpMessage.ERROR, HttpCode.ERROR)
+        }
+    }
 
 
 }

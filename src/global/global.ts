@@ -13,8 +13,8 @@ export class ResponseData<T> {
 }
 
 export interface UserData {
+    id: string
     email: string
     userName: string
-    roles: Role
-    accessToken: string
+    role: Role
 }

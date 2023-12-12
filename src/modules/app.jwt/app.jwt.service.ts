@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt'
+import { Role } from 'src/global/enum';
+import { UserData } from 'src/global/global';
 
 @Injectable()
 export class AppJwtService {
@@ -16,6 +18,14 @@ export class AppJwtService {
     verifyToken(token: string) {
         return this.jwtService.verifyAsync(token, {
             secret: process.env.JWT_KEY
+        })
+    }
+
+    generateAccessToken(id: string) {
+        const payload = { userId: id }
+        return this.jwtService.signAsync(payload, {
+            secret: process.env.JWT_KEY,
+            expiresIn: '1d'
         })
     }
 }
