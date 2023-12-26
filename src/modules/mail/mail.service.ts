@@ -1,7 +1,6 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable } from '@nestjs/common';
-import { google } from 'googleapis';
-import { Options } from 'nodemailer/lib/smtp-transport';
+
 
 @Injectable()
 export class MailService {
@@ -23,7 +22,16 @@ export class MailService {
             .sendMail({
                 to: email,
                 from: 'mapfoodprj3@gmail.com',
-                subject: 'Confirm your Food Map Account',
+                subject: 'Password for your Food Map Account',
+                html: `Mật khẩu của bạn là: <b><i>${pass}</i></b>  Để đảm bảo an toàn hãy đổi sau khi đăng nhập!`
+            })
+    }
+    sendNewPassword(email: string, pass: string) {
+        return this.mailerService
+            .sendMail({
+                to: email,
+                from: 'mapfoodprj3@gmail.com',
+                subject: 'New Password for your Food Map Account',
                 html: `Mật khẩu của bạn là: <b><i>${pass}</i></b>  Để đảm bảo an toàn hãy đổi sau khi đăng nhập!`
             })
     }

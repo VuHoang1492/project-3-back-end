@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt'
-import { Role } from 'src/global/enum';
-import { UserData } from 'src/global/global';
 
 @Injectable()
 export class AppJwtService {

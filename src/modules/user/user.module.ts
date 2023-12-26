@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { User, UserSchema } from './user.schema';
 import { AppJwtModule } from 'src/modules/app.jwt/app.jwt.module';
 import { MailModule } from 'src/modules/mail/mail.module';
+
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { MailModule } from 'src/modules/mail/mail.module';
     MailModule
   ],
   controllers: [UserController],
-  providers: [UserService]
+  providers: [UserService],
+  exports: [UserService]
 })
 export class UserModule { }

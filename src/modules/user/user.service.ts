@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose'
 import * as bcrypt from 'bcrypt'
 import mongoose from 'mongoose';
@@ -11,6 +11,8 @@ import { ResponseData, UserData } from 'src/global/global';
 import { HttpCode, HttpMessage, Role } from 'src/global/enum';
 import { LogInDTO } from './dto/login.dto';
 import { RegisterDTO } from './dto/register.dto';
+import { ForgetDTO } from './dto/forget.dto';
+import { PasswordDTO } from './dto/password.dto';
 
 @Injectable()
 export class UserService {
@@ -24,37 +26,49 @@ export class UserService {
 
 
     //TODO: register
-    async sendVerifyMail(userDTO: RegisterDTO): Promise<ResponseData<string>> {
+    async sendVerifyMail(userDTO: RegisterDTO): Promise<ResponseData<null> | HttpException> {
+
+        if (userDTO.email == 'adminfoodmap@admin.com')
+            throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+
+        let user
         try {
-            if (userDTO.email == 'adminfoodmap@admin.com')
-                return new ResponseData<string>(null, HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
-
-
-            const user = await this.userModel.findOne({ email: userDTO.email })
-            if (user) {
-                return new ResponseData<string>(null, HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
-            }
-
-            const token = await this.jwtService.generateVerifyToken(userDTO.email)
-            await this.mailService.sendUserConfirmation(userDTO.email, token)
-            return new ResponseData<string>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            user = await this.userModel.findOne({ email: userDTO.email })
         } catch (error) {
             console.log(error);
-            return new ResponseData<string>(null, HttpMessage.ERROR, HttpCode.ERROR)
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
         }
+
+        if (user) {
+            throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+        }
+
+        const token = await this.jwtService.generateVerifyToken(userDTO.email)
+        await this.mailService.sendUserConfirmation(userDTO.email, token)
+        return new ResponseData<null>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+
     }
 
-    async verifyEmail(token: string): Promise<{ url: string }> {
+    async verifyEmail(token: string): Promise<{ url: string } | HttpException> {
+
+        if (!token) throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+
+        const payload = await this.jwtService.verifyToken(token)
+
+        let userCheck
         try {
+            userCheck = await this.userModel.findOne({ email: payload.email })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
 
-            const payload = await this.jwtService.verifyToken(token)
-            const userCheck = await this.userModel.findOne({ email: payload.email })
-            if (userCheck) {
-                return { url: process.env.WEB_APP_URL }
-            }
+        if (userCheck) {
+            throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+        }
 
+        try {
             const password = Math.random().toString(36).slice(-8);
-            await this.mailService.sendPassword(payload.email, password)
             const saltOrRounds = 10;
             const hashPassword = await bcrypt.hash(password, saltOrRounds);
             const user = new this.userModel({
@@ -63,73 +77,169 @@ export class UserService {
                 password: hashPassword
             })
             await user.save()
-            return { url: process.env.WEB_APP_URL }
-        } catch (err) {
-            console.log(err);
-            return { url: process.env.WEB_APP_URL }
+            await this.mailService.sendPassword(payload.email, password)
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
         }
+        return { url: process.env.WEB_APP_URL }
+
     }
 
 
     //TODO: login service
-    async login(userDTO: LogInDTO): Promise<ResponseData<{ accessToken: string }>> {
+    async login(userDTO: LogInDTO): Promise<ResponseData<{ accessToken: string }> | HttpException> {
+
+        if (userDTO.email == process.env.ADMIN_EMAIL) {
+            if (userDTO.password == process.env.ADMIN_PASSWORD) {
+                const accessToken = await this.jwtService.generateAccessToken(process.env.ADMIN_ID)
+                return new ResponseData<{ accessToken: string }>({ accessToken: accessToken }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            }
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+        }
+
+        let userCheck
         try {
-            if (userDTO.email == process.env.ADMIN_EMAIL) {
-                if (userDTO.password == process.env.ADMIN_PASSWORD) {
-                    const accessToken = await this.jwtService.generateAccessToken(process.env.ADMIN_ID)
-                    return new ResponseData<{ accessToken: string }>({ accessToken: accessToken }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
-                }
-            }
-
-
-            const userCheck = await this.userModel.findOne({ email: userDTO.email })
-
-            if (userCheck) {
-                const res = await bcrypt.compareSync(userDTO.password, userCheck.password)
-                if (res) {
-                    const accessToken = await this.jwtService.generateAccessToken(userCheck._id.toString())
-                    return new ResponseData<{ accessToken: string }>({ accessToken: accessToken }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
-                } else {
-                    return new ResponseData<{ accessToken: string }>(null, HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
-                }
-
-            } else {
-                return new ResponseData<{ accessToken: string }>(null, HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
-            }
+            userCheck = await this.userModel.findOne({ email: userDTO.email })
         } catch (error) {
             console.log(error);
-            return new ResponseData<{ accessToken: string }>(null, HttpMessage.ERROR, HttpCode.ERROR)
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        if (userCheck) {
+            const res = await bcrypt.compareSync(userDTO.password, userCheck.password)
+            if (res) {
+                const accessToken = await this.jwtService.generateAccessToken(userCheck._id.toString())
+                return new ResponseData<{ accessToken: string }>({ accessToken: accessToken }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            } else {
+                throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+            }
+
+        } else {
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+        }
+
+    }
+
+
+
+    //TODO: forget password
+    async forgetPassword(userDTO: ForgetDTO): Promise<ResponseData<String>> {
+
+        let userCheck
+        try {
+            userCheck = await this.userModel.findOne({ email: userDTO.email })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+
+        if (userCheck) {
+            const password = Math.random().toString(36).slice(-8);
+            const saltOrRounds = 10;
+            const hashPassword = await bcrypt.hash(password, saltOrRounds);
+
+            try {
+                await userCheck.updateOne({ password: hashPassword })
+            } catch (error) {
+                console.log(error);
+                throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+            }
+
+            await this.mailService.sendNewPassword(userDTO.email, password)
+            return new ResponseData<String>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+        } else {
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
         }
     }
+
 
     //TODO: get user profile
-    async getUser(token: string): Promise<ResponseData<UserData | { role: string }>> {
+    async getUserProfile(userId: string): Promise<ResponseData<UserData | { role: string }>> {
+
+        if (userId == process.env.ADMIN_ID) {
+            return new ResponseData<{ role: string }>({ role: 'admin' }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+        }
+
+
+        let user
         try {
-            const payload = await this.jwtService.verifyToken(token)
-
-            if (payload.userId == process.env.ADMIN_ID) {
-                return new ResponseData<{ role: string }>({ role: 'admin' }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
-            }
-
-            const user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(payload.userId) })
-            if (user) {
-                const data: UserData = {
-                    id: user._id.toString(),
-                    email: user.email,
-                    userName: user.userName,
-                    role: user.role as Role
-                }
-
-                return new ResponseData<UserData>(data, HttpMessage.SUCCESS, HttpCode.SUCCESS)
-            } else {
-                return new ResponseData<UserData>(null, HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
-            }
-
-
+            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) })
         } catch (error) {
-            return new ResponseData<UserData>(null, HttpMessage.ERROR, HttpCode.ERROR)
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        if (user) {
+            const data: UserData = {
+                id: user._id.toString(),
+                email: user.email,
+                userName: user.userName,
+                role: user.role as Role
+            }
+
+            return new ResponseData<UserData>(data, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+        } else {
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+        }
+    }
+
+    //TODO: change password
+    async changePassword(userId: string, passwordData: PasswordDTO): Promise<ResponseData<null>> {
+
+
+
+
+        if (passwordData.currentPassword === passwordData.newPassword)
+            throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+
+
+        let user
+        try {
+            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+
+
+        if (user) {
+            const res = await bcrypt.compareSync(passwordData.currentPassword, user.password)
+
+            if (res) {
+                const saltOrRounds = 10;
+                const hashPassword = await bcrypt.hash(passwordData.newPassword, saltOrRounds);
+                try {
+                    await user.updateOne({ password: hashPassword })
+                } catch (error) {
+                    console.log(error);
+                    throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+                }
+                return new ResponseData<null>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            } else {
+                throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+            }
+
+        } else {
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
         }
     }
 
 
+    //TODO get roles 
+    async getRole(userId: string): Promise<{ role: Role }> {
+        if (userId == process.env.ADMIN_ID) {
+            return { role: Role.ADMIN }
+        }
+        let user
+        try {
+            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        if (user) {
+            return { role: user.role as Role }
+        } else {
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+        }
+    }
 }

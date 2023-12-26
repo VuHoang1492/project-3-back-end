@@ -2,7 +2,8 @@ export enum HttpCode {
     SUCCESS = 200,
     ERROR = 500,
     BAD_REQUEST = 400,
-    UNAUTHORIZED = 401
+    UNAUTHORIZED = 401,
+    NOT_ACCESS = 403
 }
 
 export enum HttpMessage {
@@ -10,8 +11,8 @@ export enum HttpMessage {
     ERROR = 'Server Internal Error',
     BAD_REQUEST = 'Bad Request',
     ACCOUNT_EXIST = 'This account already exists',
-    UNAUTHORIZED = 'Unauthorized'
-
+    UNAUTHORIZED = 'Unauthorized',
+    NOT_ACCESS = 'Forbidden'
 }
 
 export enum Role {

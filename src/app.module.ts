@@ -7,6 +7,9 @@ import { MailModule } from './modules/mail/mail.module';
 import { ConfigModule } from '@nestjs/config';
 import { AppJwtModule } from './modules/app.jwt/app.jwt.module';
 import { MongooseModule } from '@nestjs/mongoose';
+import { APP_GUARD } from '@nestjs/core';
+import { RolesGuard } from './guard/roles.guard';
+import { UserService } from './modules/user/user.service';
 
 @Module({
   imports: [
@@ -17,6 +20,9 @@ import { MongooseModule } from '@nestjs/mongoose';
     AppJwtModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [{
+    provide: APP_GUARD,
+    useClass: RolesGuard,
+  }, AppService],
 })
 export class AppModule { }
