@@ -9,15 +9,20 @@ import { AppJwtModule } from './modules/app.jwt/app.jwt.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './guard/roles.guard';
-import { UserService } from './modules/user/user.service';
+import { FormModule } from './modules/form/form.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
     MongooseModule.forRoot('mongodb://127.0.0.1:27017/foodmap'),
     ConfigModule.forRoot(),
+    EventEmitterModule.forRoot(),
     UserModule,
     MailModule,
-    AppJwtModule
+    AppJwtModule,
+    FormModule,
+    NotificationModule
   ],
   controllers: [AppController],
   providers: [{

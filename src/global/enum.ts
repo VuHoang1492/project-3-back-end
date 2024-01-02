@@ -20,3 +20,8 @@ export enum Role {
     OWNER = 'owner',
     USER = 'user'
 }
+
+export enum OwnerLevel {
+    TRIAL = 'trial',
+    VIP = 'vip'
+}

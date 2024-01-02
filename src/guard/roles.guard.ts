@@ -23,6 +23,8 @@ export class RolesGuard implements CanActivate {
         }
         const request = context.switchToHttp().getRequest();
         const token = this.extractTokenFromHeader(request);
+
+
         if (!token) {
             throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
         }

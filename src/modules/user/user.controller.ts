@@ -1,13 +1,13 @@
 import { Body, Controller, Post, Get, Query, Redirect, HttpCode, Request, } from '@nestjs/common';
 import { UserService } from './user.service';
-import { RegisterDTO } from './dto/register.dto';
-import { LogInDTO } from './dto/login.dto';
-import { ForgetDTO } from './dto/forget.dto';
+import { RegisterDTO } from '../../dto/user.dto/register.dto';
+import { LogInDTO } from '../../dto/user.dto/login.dto';
+import { ForgetDTO } from '../../dto/user.dto/forget.dto';
 import { Roles } from 'src/decorator/roles.decorator';
 import { Role } from 'src/global/enum';
-import { UpgradeDTO } from './dto/upgrade.dto';
-import { PasswordDTO } from './dto/password.dto';
-import { log } from 'console';
+import { UpgradeDTO } from '../../dto/restaurant.dto/upgrade.dto';
+import { PasswordDTO } from '../../dto/user.dto/password.dto';
+
 
 
 @Controller()
@@ -56,7 +56,8 @@ export class UserController {
 
     @Post('upgrade')
     @Roles(Role.USER)
-    upgrade(@Body() data: UpgradeDTO) {
+    upgrade(@Body() data: UpgradeDTO, @Request() req) {
+        return this.userService.upgrade(req.userId, data)
 
     }
 

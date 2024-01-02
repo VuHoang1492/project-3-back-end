@@ -2,17 +2,18 @@ import { HttpException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose'
 import * as bcrypt from 'bcrypt'
 import mongoose from 'mongoose';
-import { ObjectId } from 'mongoose';
 
-import { User } from './user.schema';
+import { User } from '../../schema/user/user.schema';
 import { MailService } from 'src/modules/mail/mail.service';
 import { AppJwtService } from 'src/modules/app.jwt/app.jwt.service';
 import { ResponseData, UserData } from 'src/global/global';
 import { HttpCode, HttpMessage, Role } from 'src/global/enum';
-import { LogInDTO } from './dto/login.dto';
-import { RegisterDTO } from './dto/register.dto';
-import { ForgetDTO } from './dto/forget.dto';
-import { PasswordDTO } from './dto/password.dto';
+import { LogInDTO } from '../../dto/user.dto/login.dto';
+import { RegisterDTO } from '../../dto/user.dto/register.dto';
+import { ForgetDTO } from '../../dto/user.dto/forget.dto';
+import { PasswordDTO } from '../../dto/user.dto/password.dto';
+import { UpgradeDTO } from 'src/dto/restaurant.dto/upgrade.dto';
+import { FormService } from '../form/form.service';
 
 @Injectable()
 export class UserService {
@@ -21,7 +22,8 @@ export class UserService {
         @InjectModel(User.name)
         private userModel: mongoose.Model<User>,
         private readonly mailService: MailService,
-        private readonly jwtService: AppJwtService
+        private readonly jwtService: AppJwtService,
+        private readonly formService: FormService
     ) { }
 
 
@@ -73,7 +75,6 @@ export class UserService {
             const hashPassword = await bcrypt.hash(password, saltOrRounds);
             const user = new this.userModel({
                 email: payload.email,
-                userName: payload.email,
                 password: hashPassword
             })
             await user.save()
@@ -168,6 +169,7 @@ export class UserService {
             console.log(error);
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
         }
+
         if (user) {
             const data: UserData = {
                 id: user._id.toString(),
@@ -185,12 +187,8 @@ export class UserService {
     //TODO: change password
     async changePassword(userId: string, passwordData: PasswordDTO): Promise<ResponseData<null>> {
 
-
-
-
         if (passwordData.currentPassword === passwordData.newPassword)
             throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
-
 
         let user
         try {
@@ -231,15 +229,57 @@ export class UserService {
         }
         let user
         try {
-            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) })
+            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { "role": 1 })
+
         } catch (error) {
             console.log(error);
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
         }
         if (user) {
+
             return { role: user.role as Role }
         } else {
             throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
         }
+    }
+
+    //TODO Upgrade
+    async upgrade(userId: string, data: UpgradeDTO): Promise<ResponseData<null>> {
+        try {
+            if (await this.formService.checkExistForm(userId, 'UPGRADE', 'PENDING')) {
+
+
+                throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+            }
+        } catch (error) {
+
+            throw error
+        }
+        let user
+        try {
+            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { "email": 1 })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        const payload = {
+            userName: data.userName,
+            numberPhone: data.numberPhone,
+            brandName: data.brandName,
+            email: user.email,
+            level: data.level
+        }
+
+        try {
+            await this.mailService.sendNotifymailToAdmin(payload)
+            await this.formService.createUpgradeForm(data, userId, user.email)
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+
+
+
+        return new ResponseData<null>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
     }
 }
