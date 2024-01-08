@@ -53,4 +53,21 @@ export class MailService {
 
             })
     }
+
+
+    sendUpgradeMail = (email: string) => {
+        console.log(email);
+        return this.mailerService
+            .sendMail({
+                to: email,
+                from: 'admin',
+                subject: 'UPGRADE SUCCESS',
+                html: `<div>
+                        Bạn đã trở thành đối tác của Food Map. Bạn có thể tạo cửa hàng và đăng bài từ bây giờ.
+                    </div>`
+
+            })
+    }
+
+
 }

@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import { User } from '../../schema/user/user.schema';
 import { MailService } from 'src/modules/mail/mail.service';
 import { AppJwtService } from 'src/modules/app.jwt/app.jwt.service';
-import { ResponseData, UserData } from 'src/global/global';
+import { ResponseData } from 'src/global/global';
 import { HttpCode, HttpMessage, Role } from 'src/global/enum';
 import { LogInDTO } from '../../dto/user.dto/login.dto';
 import { RegisterDTO } from '../../dto/user.dto/register.dto';
@@ -14,6 +14,8 @@ import { ForgetDTO } from '../../dto/user.dto/forget.dto';
 import { PasswordDTO } from '../../dto/user.dto/password.dto';
 import { UpgradeDTO } from 'src/dto/restaurant.dto/upgrade.dto';
 import { FormService } from '../form/form.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class UserService {
@@ -23,7 +25,9 @@ export class UserService {
         private userModel: mongoose.Model<User>,
         private readonly mailService: MailService,
         private readonly jwtService: AppJwtService,
-        private readonly formService: FormService
+        private readonly formService: FormService,
+        private readonly notificationService: NotificationService,
+        private readonly eventEmitter: EventEmitter2
     ) { }
 
 
@@ -89,12 +93,12 @@ export class UserService {
 
 
     //TODO: login service
-    async login(userDTO: LogInDTO): Promise<ResponseData<{ accessToken: string }> | HttpException> {
+    async login(userDTO: LogInDTO) {
 
         if (userDTO.email == process.env.ADMIN_EMAIL) {
             if (userDTO.password == process.env.ADMIN_PASSWORD) {
                 const accessToken = await this.jwtService.generateAccessToken(process.env.ADMIN_ID)
-                return new ResponseData<{ accessToken: string }>({ accessToken: accessToken }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+                return new ResponseData<Object>({ accessToken: accessToken, user: { role: Role.ADMIN, email: process.env.ADMIN_EMAIL } }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
             }
             throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
         }
@@ -107,10 +111,19 @@ export class UserService {
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
         }
         if (userCheck) {
+
             const res = await bcrypt.compareSync(userDTO.password, userCheck.password)
             if (res) {
+                const data = {
+                    role: userCheck.role,
+                    email: userCheck.email,
+                    brandName: userCheck.brandName
+                }
+
+                console.log(data);
+
                 const accessToken = await this.jwtService.generateAccessToken(userCheck._id.toString())
-                return new ResponseData<{ accessToken: string }>({ accessToken: accessToken }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+                return new ResponseData<Object>({ accessToken: accessToken, user: data }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
             } else {
                 throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
             }
@@ -155,10 +168,9 @@ export class UserService {
 
 
     //TODO: get user profile
-    async getUserProfile(userId: string): Promise<ResponseData<UserData | { role: string }>> {
-
+    async getUserProfile(userId: string) {
         if (userId == process.env.ADMIN_ID) {
-            return new ResponseData<{ role: string }>({ role: 'admin' }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            return new ResponseData<Object>({ user: { role: Role.ADMIN, email: process.env.ADMIN_EMAIL } }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
         }
 
 
@@ -171,14 +183,13 @@ export class UserService {
         }
 
         if (user) {
-            const data: UserData = {
-                id: user._id.toString(),
+            const data = {
+                role: user.role,
                 email: user.email,
-                userName: user.userName,
-                role: user.role as Role
+                brandName: user.brandName
             }
 
-            return new ResponseData<UserData>(data, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            return new ResponseData<Object>({ user: data }, HttpMessage.SUCCESS, HttpCode.SUCCESS)
         } else {
             throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
         }
@@ -221,43 +232,33 @@ export class UserService {
         }
     }
 
-
-    //TODO get roles 
-    async getRole(userId: string): Promise<{ role: Role }> {
-        if (userId == process.env.ADMIN_ID) {
-            return { role: Role.ADMIN }
-        }
-        let user
+    //TODO change brand
+    async changeBrand(newBrand: string, userId: string) {
         try {
-            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { "role": 1 })
-
+            await this.userModel.updateOne({ _id: new mongoose.Types.ObjectId(userId) }, { brandName: newBrand })
+            return new ResponseData<null>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
         } catch (error) {
             console.log(error);
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
         }
-        if (user) {
 
-            return { role: user.role as Role }
-        } else {
-            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
-        }
+
     }
+
 
     //TODO Upgrade
     async upgrade(userId: string, data: UpgradeDTO): Promise<ResponseData<null>> {
         try {
             if (await this.formService.checkExistForm(userId, 'UPGRADE', 'PENDING')) {
-
-
                 throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
             }
         } catch (error) {
-
-            throw error
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
         }
         let user
         try {
-            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { "email": 1 })
+            user = await this.getMail(userId)
         } catch (error) {
             console.log(error);
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
@@ -273,6 +274,10 @@ export class UserService {
         try {
             await this.mailService.sendNotifymailToAdmin(payload)
             await this.formService.createUpgradeForm(data, userId, user.email)
+
+            const to = process.env.ADMIN_ID
+            await this.notificationService.create(userId, user.email, to, 'UPGRADE')
+            this.eventEmitter.emit('notification', to)
         } catch (error) {
             console.log(error);
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
@@ -281,5 +286,32 @@ export class UserService {
 
 
         return new ResponseData<null>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+    }
+
+    //TO DO get mail
+    getMail(userId: string) {
+        return this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { "email": 1 })
+    }
+    //TODO get roles 
+    async getRole(userId: string): Promise<{ role: Role }> {
+        if (userId == process.env.ADMIN_ID) {
+            return { role: Role.ADMIN }
+        }
+
+
+        let user
+        try {
+            user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { "role": 1 })
+
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        if (user) {
+
+            return { role: user.role as Role }
+        } else {
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+        }
     }
 }

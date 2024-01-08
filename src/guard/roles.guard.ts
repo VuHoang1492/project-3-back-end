@@ -32,9 +32,13 @@ export class RolesGuard implements CanActivate {
 
         try {
             payload = await this.jwtService.verifyToken(token)
+
         } catch (error) {
+            console.log(error);
             throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
         }
+
+
 
         let userRole
         try {
@@ -43,7 +47,6 @@ export class RolesGuard implements CanActivate {
                 request['userId'] = payload.userId
                 return true
             }
-
 
             throw new HttpException(HttpMessage.NOT_ACCESS, HttpCode.NOT_ACCESS)
         } catch (error) {

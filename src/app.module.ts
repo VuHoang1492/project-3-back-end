@@ -12,7 +12,9 @@ import { RolesGuard } from './guard/roles.guard';
 import { FormModule } from './modules/form/form.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-
+import { AdminModule } from './modules/admin/admin.module';
+import { RestaurantModule } from './modules/restaurant/restaurant.module';
+import { S3Module } from './modules/s3/s3.module';
 @Module({
   imports: [
     MongooseModule.forRoot('mongodb://127.0.0.1:27017/foodmap'),
@@ -22,7 +24,11 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     MailModule,
     AppJwtModule,
     FormModule,
-    NotificationModule
+    NotificationModule,
+    AdminModule,
+    RestaurantModule,
+    S3Module,
+
   ],
   controllers: [AppController],
   providers: [{

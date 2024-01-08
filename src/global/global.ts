@@ -18,3 +18,8 @@ export interface UserData {
     userName: string
     role: Role
 }
+
+
+export class NotificationEvent {
+    to: string
+}

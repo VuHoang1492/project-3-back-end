@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Get, Query, Redirect, HttpCode, Request, } from '@nestjs/common';
+import { Body, Controller, Post, Get, Query, Redirect, HttpCode, Request, Put, } from '@nestjs/common';
 import { UserService } from './user.service';
 import { RegisterDTO } from '../../dto/user.dto/register.dto';
 import { LogInDTO } from '../../dto/user.dto/login.dto';
@@ -58,6 +58,13 @@ export class UserController {
     @Roles(Role.USER)
     upgrade(@Body() data: UpgradeDTO, @Request() req) {
         return this.userService.upgrade(req.userId, data)
+
+    }
+
+    @Put('brand/update')
+    @Roles(Role.OWNER)
+    updateBrand(@Body() data, @Request() req) {
+        return this.userService.changeBrand(data.newName, req.userId)
 
     }
 

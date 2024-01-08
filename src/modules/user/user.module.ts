@@ -5,17 +5,17 @@ import { UserService } from './user.service';
 import { User, UserSchema } from '../../schema/user/user.schema';
 import { AppJwtModule } from 'src/modules/app.jwt/app.jwt.module';
 import { MailModule } from 'src/modules/mail/mail.module';
-import { OnwerSchema } from 'src/schema/user/onwer.schema';
 import { FormModule } from '../form/form.module';
+import { NotificationModule } from '../notification/notification.module';
 
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    MongooseModule.forFeature([{ name: User.name, schema: OnwerSchema }]),
     AppJwtModule,
     MailModule,
-    FormModule
+    FormModule,
+    NotificationModule
   ],
   controllers: [UserController],
   providers: [UserService],
