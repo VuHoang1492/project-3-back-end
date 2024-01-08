@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Get, Query, Redirect, HttpCode, Request, Put, } from '@nestjs/common';
+import { Body, Controller, Post, Get, Query, Redirect, HttpCode, Request, Put, Param, } from '@nestjs/common';
 import { UserService } from './user.service';
 import { RegisterDTO } from '../../dto/user.dto/register.dto';
 import { LogInDTO } from '../../dto/user.dto/login.dto';
@@ -65,7 +65,23 @@ export class UserController {
     @Roles(Role.OWNER)
     updateBrand(@Body() data, @Request() req) {
         return this.userService.changeBrand(data.newName, req.userId)
+    }
 
+    @Post('/follow/:id')
+    @Roles(Role.OWNER, Role.USER)
+    follow(@Param('id') restaurantId, @Request() req) {
+        return this.userService.follow(req.userId, restaurantId)
+    }
+
+    @Post('/unfollow/:id')
+    @Roles(Role.OWNER, Role.USER)
+    unfollow(@Param('id') restaurantId, @Request() req) {
+        return this.userService.unfollow(req.userId, restaurantId)
+    }
+    @Get('/follow-restaurant')
+    @Roles(Role.OWNER, Role.USER)
+    getAllFollow(@Request() req) {
+        return this.userService.getAllFollow(req.userId)
     }
 
 }

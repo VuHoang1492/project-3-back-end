@@ -7,15 +7,19 @@ import { AppJwtModule } from 'src/modules/app.jwt/app.jwt.module';
 import { MailModule } from 'src/modules/mail/mail.module';
 import { FormModule } from '../form/form.module';
 import { NotificationModule } from '../notification/notification.module';
+import { Restaurant, RestaurantSchema } from 'src/schema/user/restaurant/restaurant.schema';
+import { S3Module } from '../s3/s3.module';
 
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([{ name: 'restaurants', schema: RestaurantSchema }]),
     AppJwtModule,
     MailModule,
     FormModule,
-    NotificationModule
+    NotificationModule,
+    S3Module
   ],
   controllers: [UserController],
   providers: [UserService],

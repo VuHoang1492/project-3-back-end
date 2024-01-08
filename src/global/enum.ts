@@ -18,7 +18,8 @@ export enum HttpMessage {
 export enum Role {
     ADMIN = 'admin',
     OWNER = 'owner',
-    USER = 'user'
+    USER = 'user',
+
 }
 
 export enum OwnerLevel {

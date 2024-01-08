@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, Request, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req, Request, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Roles } from 'src/decorator/roles.decorator';
 import { Role } from 'src/global/enum';
@@ -26,8 +26,8 @@ export class RestaurantController {
     }
 
     @Get('/get-by-id/:id')
-    getRestaurantbyId(@Param('id') id) {
-        return this.restaurantService.getRestaurantById(id)
+    getRestaurantbyId(@Param('id') id, @Request() req) {
+        return this.restaurantService.getRestaurantById(id, req.userId)
     }
 
     @Get('/owner/get-all')
@@ -50,7 +50,7 @@ export class RestaurantController {
     }
 
     @Get('/nearby')
-    async getNearby(@Query('lat') lat, @Query('lng') lng) {
-        return this.restaurantService.getRestaurantNearby({ lat: lat, lng: lng })
+    async getNearby(@Query('lat') lat, @Query('lng') lng, @Request() req) {
+        return this.restaurantService.getRestaurantNearby({ lat: lat, lng: lng }, req.userId)
     }
 }

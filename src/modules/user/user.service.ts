@@ -16,6 +16,8 @@ import { UpgradeDTO } from 'src/dto/restaurant.dto/upgrade.dto';
 import { FormService } from '../form/form.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationService } from '../notification/notification.service';
+import { Restaurant } from 'src/schema/user/restaurant/restaurant.schema';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class UserService {
@@ -23,11 +25,14 @@ export class UserService {
     constructor(
         @InjectModel(User.name)
         private userModel: mongoose.Model<User>,
+        @InjectModel('restaurants')
+        private restaurantModel: mongoose.Model<Restaurant>,
         private readonly mailService: MailService,
         private readonly jwtService: AppJwtService,
         private readonly formService: FormService,
         private readonly notificationService: NotificationService,
-        private readonly eventEmitter: EventEmitter2
+        private readonly eventEmitter: EventEmitter2,
+        private readonly s3Service: S3Service
     ) { }
 
 
@@ -312,6 +317,105 @@ export class UserService {
             return { role: user.role as Role }
         } else {
             throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+        }
+    }
+
+
+    //TODO follow 
+    async follow(userId: string, restaurantId: string) {
+        let restaurant
+        try {
+            restaurant = await this.restaurantModel.findOne({ _id: new mongoose.Types.ObjectId(restaurantId) })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        if (restaurant) {
+            const followList = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { followed: 1 })
+
+            followList.followed.forEach(object => {
+
+                if (object.toString() == restaurantId) throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+            })
+
+
+
+            try {
+                await this.userModel.updateOne({ _id: new mongoose.Types.ObjectId(userId) }, { $push: { followed: new mongoose.Types.ObjectId(restaurantId) } })
+            } catch (error) {
+                console.log(error);
+                throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+            }
+
+            return new ResponseData<null>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+        } else {
+            throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+        }
+
+
+
+    }
+    //TODO unfollow
+    async unfollow(userId: string, restaurantId: string) {
+        let restaurant
+        try {
+            restaurant = await this.restaurantModel.findOne({ _id: new mongoose.Types.ObjectId(restaurantId) })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        if (restaurant) {
+            const followList = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { followed: 1 })
+
+            followList.followed.forEach(object => {
+
+                if (object.toString() == restaurantId) {
+
+                }
+            })
+
+            for (let i = 0; i <= followList.followed.length; ++i) {
+                if (followList.followed[i].toString() == restaurantId) {
+                    try {
+                        await this.userModel.updateOne({ _id: new mongoose.Types.ObjectId(userId) }, { $pull: { followed: new mongoose.Types.ObjectId(restaurantId) } })
+                        return new ResponseData<null>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+                    } catch (error) {
+                        console.log(error);
+                        throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+                    }
+                }
+            }
+
+
+
+        }
+        throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+
+
+
+    }
+
+    //TODO get all follow
+    async getAllFollow(userId: string) {
+        try {
+            const user = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { followed: 1 })
+                .populate('followed', { restaurantName: 1, rating: 1, thumbnail: 1 }).lean()
+            let respone = []
+            if (user) {
+                respone = user.followed
+
+                for (let i = 0; i < respone.length; ++i) {
+                    const url = await this.s3Service.getFile(respone[i].thumbnail)
+                    respone[i].thumbnail = url
+
+                }
+
+                return new ResponseData<[]>(respone, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+            }
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
         }
     }
 }

@@ -21,6 +21,8 @@ export class RolesGuard implements CanActivate {
             console.log("Public route...");
             return true;
         }
+
+
         const request = context.switchToHttp().getRequest();
         const token = this.extractTokenFromHeader(request);
 
@@ -43,6 +45,7 @@ export class RolesGuard implements CanActivate {
         let userRole
         try {
             userRole = await this.userService.getRole(payload.userId)
+
             if (requiredRoles.includes(userRole.role)) {
                 request['userId'] = payload.userId
                 return true

@@ -1,5 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
+import mongoose from 'mongoose'
 import { OwnerLevel, Role } from 'src/global/enum'
+import { Restaurant } from './restaurant/restaurant.schema'
 
 @Schema({ timestamps: true })
 export class User {
@@ -24,6 +26,9 @@ export class User {
 
     @Prop({ required: false, enum: [OwnerLevel.TRIAL, OwnerLevel.VIP] })
     level: string
+
+    @Prop({ default: [], ref: 'restaurants' })
+    followed: Array<mongoose.Types.ObjectId | Restaurant>
 
 
     @Prop({ required: false })

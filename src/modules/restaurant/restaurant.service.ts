@@ -10,15 +10,18 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ResponseData } from 'src/global/global';
 import * as crypto from 'crypto'
 import mongoose from 'mongoose';
-import { Restaurant } from 'src/schema/restaurant/restaurant.schema';
+import { Restaurant } from 'src/schema/user/restaurant/restaurant.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { getPreciseDistance } from 'geolib';
+import { User } from 'src/schema/user/user.schema';
 
 @Injectable()
 export class RestaurantService {
     constructor(
-        @InjectModel(Restaurant.name)
+        @InjectModel('restaurants')
         private readonly restaurantModel: mongoose.Model<Restaurant>,
+        @InjectModel(User.name)
+        private readonly userModel: mongoose.Model<User>,
         private readonly s3Service: S3Service,
         private readonly userService: UserService,
         private readonly mailService: MailService,
@@ -26,22 +29,44 @@ export class RestaurantService {
         private readonly eventEmitter: EventEmitter2
     ) { }
 
-    async getRestaurantNearby(payload: { lat: number, lng: number }) {
+    async getRestaurantNearby(payload: { lat: number, lng: number }, userId: string) {
         try {
+
+            let followList = null
+            if (userId) {
+                followList = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { followed: 1 })
+            }
+
             const response = []
             const restaurants = await this.restaurantModel.find({}, { status: 0, updatedAt: 0, createdAt: 0 })
                 .populate('userId', { userName: 1, numberPhone: 1, email: 1, brandName: 1 })
-                .exec()
+                .lean()
 
             for (let i = 0; i < restaurants.length; ++i) {
                 const distance = getPreciseDistance({ latitude: payload.lat, longitude: payload.lng }, { latitude: restaurants[i].lat, longitude: restaurants[i].lng })
                 if (distance < 2000) {
                     const url = await this.s3Service.getFile(restaurants[i].thumbnail)
                     restaurants[i].thumbnail = url
+
                     response.push(restaurants[i])
                 }
             }
 
+
+
+
+            if (followList != null && followList.followed.length > 0) {
+                for (let i = 0; i < response.length; ++i) {
+                    response[i]['favorite'] = false
+                    followList.followed.forEach(object => {
+                        if (object.toString() == response[i]._id) {
+                            response[i]['favorite'] = true
+                        }
+                    })
+
+                }
+
+            }
 
             return new ResponseData<[]>(response, HttpMessage.SUCCESS, HttpCode.SUCCESS)
         } catch (error) {
@@ -115,12 +140,18 @@ export class RestaurantService {
 
     }
 
-    async getRestaurantById(restaurantId: string) {
+    async getRestaurantById(restaurantId: string, userId: string) {
         let data
+        let followList = null
         try {
+
+            if (userId) {
+                followList = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { followed: 1 })
+            }
+
             data = await this.restaurantModel.findOne({ _id: new mongoose.Types.ObjectId(restaurantId) }, { status: 0 })
                 .populate('userId', { userName: 1, numberPhone: 1, email: 1, brandName: 1 })
-                .exec()
+                .lean()
         } catch (error) {
             console.log(error);
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
@@ -129,7 +160,16 @@ export class RestaurantService {
 
         const url = await this.s3Service.getFile(data.thumbnail)
 
-        const response = { ...data._doc, thumbnail: url }
+        const response = { ...data, thumbnail: url }
+        if (followList != null && followList.followed.length > 0) {
+            response.favorite = false
+            followList.followed.forEach(object => {
+                if (object.toString() == response._id) {
+                    response.favorite = true
+                }
+            })
+        }
+
 
 
         return new ResponseData<Object>(response, HttpMessage.SUCCESS, HttpCode.SUCCESS)
