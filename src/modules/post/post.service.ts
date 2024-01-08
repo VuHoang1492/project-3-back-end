@@ -42,14 +42,78 @@ export class PostService {
 
         for (let i = 0; i < files.length; ++i) {
             const url = `/image/${payload.restaurant}-${crypto.randomBytes(16).toString('hex')}`
-            await this.s3Service.upload(url, files[0].buffer)
+            await this.s3Service.upload(url, files[i].buffer)
             post.media.push({
-                type: files[0].mimetype,
+                type: files[i].mimetype,
                 src: url,
             })
         }
 
         await post.save()
         return new ResponseData<null>(null, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+    }
+
+    async getPostByRestaurant(restaurantId: string) {
+        let response = null
+        try {
+            response = await this.postModel.find({ restaurant: restaurantId }).lean()
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        if (response == null) {
+            throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+        }
+
+        for (let i = 0; i < response.length; ++i) {
+            for (let j = 0; j < response[i].media.length; ++j) {
+                response[i].media[j].src = await this.s3Service.getFile(response[i].media[j].src)
+            }
+        }
+
+
+        return new ResponseData<[]>(response, HttpMessage.SUCCESS, HttpCode.SUCCESS)
+
+    }
+
+
+    async deletePost(postId: string, userId: string) {
+        let post = null
+        try {
+            post = await this.postModel.findOne({ _id: new mongoose.Types.ObjectId(postId) })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+        if (post == null) {
+            throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+        }
+        let restaurant = null
+        try {
+            restaurant = await this.restaurantModel.findOne({ _id: post.restaurant }, { userId: 1 })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+
+
+
+
+
+
+        if (restaurant == null) {
+            throw new HttpException(HttpMessage.BAD_REQUEST, HttpCode.BAD_REQUEST)
+        }
+        if (restaurant.userId.toString() !== userId) {
+            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+        }
+
+        try {
+            await this.postModel.deleteOne({ _id: new mongoose.Types.ObjectId(postId) })
+        } catch (error) {
+            console.log(error);
+            throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)
+        }
+
     }
 }
