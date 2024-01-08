@@ -33,7 +33,7 @@ export class RestaurantService {
         try {
 
             let followList = null
-            if (userId) {
+            if (userId != process.env.ADMIN_ID) {
                 followList = await this.userModel.findOne({ _id: new mongoose.Types.ObjectId(userId) }, { followed: 1 })
             }
 

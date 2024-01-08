@@ -41,6 +41,9 @@ export class Restaurant {
     @Prop({ default: 10 })
     rating: number
 
+    @Prop({ default: 0 })
+    countReview: number
+
     @Prop({ default: 'WAIT', enum: ['WAIT', 'ACTIVE'] })
     status: string
 

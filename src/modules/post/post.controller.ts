@@ -16,7 +16,6 @@ export class PostController {
     }
 
     @Get('/get-by-restaurant')
-    @UseInterceptors(FilesInterceptor('media'))
     async getPostByRestaurant(@Query('restaurantId') restaurantId) {
         return this.postService.getPostByRestaurant(restaurantId)
     }
