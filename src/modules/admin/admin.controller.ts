@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Request, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Request, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { Roles } from 'src/decorator/roles.decorator';
 import { Role } from 'src/global/enum';
 import { FormService } from '../form/form.service';
@@ -14,7 +14,6 @@ export class AdminController {
         private readonly formService: FormService,
         private readonly adminService: AdminService,
         private readonly restaurantService: RestaurantService,
-        private readonly userService: UserService
     ) { }
 
     @Post('/form-process')
@@ -67,5 +66,11 @@ export class AdminController {
     getAll(@Query('id') id) {
         console.log(id);
         return this.restaurantService.getAllRestaurantOfOwner(id)
+    }
+    @Delete('/restaurant/delete/:id')
+    @Roles(Role.ADMIN)
+    delete(@Param('id') id) {
+        console.log(id);
+        return this.adminService.deleteRestaurant(id)
     }
 }
