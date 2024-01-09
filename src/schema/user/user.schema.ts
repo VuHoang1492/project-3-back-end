@@ -31,10 +31,16 @@ export class User {
     followed: Array<mongoose.Types.ObjectId | Restaurant>
 
 
-    @Prop({ required: false })
-    numberRestaurant: number
+    @Prop({ required: false, default: 0 })
+    ban: number
 }
 
+
+interface BanInfo {
+    count: number;
+    time: string;
+    from: Date
+}
 
 
 export const UserSchema = SchemaFactory.createForClass(User)

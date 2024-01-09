@@ -56,7 +56,7 @@ export class PostService {
     async getPostByRestaurant(restaurantId: string) {
         let response = null
         try {
-            response = await this.postModel.find({ restaurant: restaurantId }).lean()
+            response = await this.postModel.find({ restaurant: restaurantId }).sort({ createdAt: 'desc' }).lean()
         } catch (error) {
             console.log(error);
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)

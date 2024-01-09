@@ -71,7 +71,7 @@ export class ReviewService {
     async getReviewByRestauarant(restaurantId: string) {
         let response = null
         try {
-            response = await this.reviewModel.find({ restaurant: restaurantId }).populate('user', { email: 1 }).lean()
+            response = await this.reviewModel.find({ restaurant: restaurantId }).sort({ createdAt: 'desc' }).populate('user', { email: 1 }).lean()
         } catch (error) {
             console.log(error);
             throw new HttpException(HttpMessage.ERROR, HttpCode.ERROR)

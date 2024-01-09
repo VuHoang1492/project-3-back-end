@@ -13,21 +13,24 @@ export class UserIDMiddleware implements NestMiddleware {
         console.log('Middleware...');
 
         const token = this.extractTokenFromHeader(req)
+        req['userId'] = undefined
+        if (token) {
 
-        if (!token) {
-            req['userId'] = undefined
+            let payload
+
+            try {
+                payload = await this.jwtService.verifyToken(token)
+
+            } catch (error) {
+                console.log(error);
+                throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
+            }
+            req['userId'] = payload.userId
+
         }
 
-        let payload
 
-        try {
-            payload = await this.jwtService.verifyToken(token)
 
-        } catch (error) {
-            console.log(error);
-            throw new HttpException(HttpMessage.UNAUTHORIZED, HttpCode.UNAUTHORIZED)
-        }
-        req['userId'] = payload.userId
         next();
     }
     private extractTokenFromHeader(request: Request): string | undefined {
